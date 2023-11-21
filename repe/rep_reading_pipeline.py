@@ -6,8 +6,9 @@ from .rep_readers import DIRECTION_FINDERS, RepReader
 
 class RepReadingPipeline(Pipeline):
 
-    def __init__(self, **kwargs):
+    def __init__(self, model_type: str="llama", **kwargs):
         super().__init__(**kwargs)
+        self.model_type = model_type
 
     def _get_hidden_states(
             self, 
@@ -22,10 +23,11 @@ class RepReadingPipeline(Pipeline):
         hidden_states_layers = {}
         for layer in hidden_layers:
             hidden_states = outputs['hidden_states'][layer]
-            hidden_states =  hidden_states[:, rep_token, :]
+            hidden_states = hidden_states[rep_token, :, :] if self.model_type == "chatglm" \
+                else hidden_states[:, rep_token, :]
             hidden_states_layers[layer] = hidden_states.cpu().to(dtype=torch.float32).detach().numpy()
 
-        return hidden_states_layers
+        return hidden_states_layers # Dict[int, np.ndarray(batch_size, hidden_size)]
 
     def _sanitize_parameters(self, 
                              rep_reader: RepReader=None,
@@ -80,7 +82,7 @@ class RepReadingPipeline(Pipeline):
         hidden_states = self._get_hidden_states(outputs, rep_token, hidden_layers, which_hidden_states)
         
         if rep_reader is None:
-            return hidden_states
+            return hidden_states # Dict[int, np.ndarray(batch_size, hidden_size)]
         
         return rep_reader.transform(hidden_states, hidden_layers, component_index)
 
@@ -90,10 +92,10 @@ class RepReadingPipeline(Pipeline):
         hidden_states_outputs = self(train_inputs, rep_token=rep_token,
             hidden_layers=hidden_layers, batch_size=batch_size, rep_reader=None, which_hidden_states=which_hidden_states, **tokenizer_args)
         hidden_states = {layer: [] for layer in hidden_layers}
-        for hidden_states_batch in hidden_states_outputs:
+        for hidden_states_batch in hidden_states_outputs: # List[Dict[int, np.ndarray(batch_size, hidden_size)]], the outer list is added by the batched_call method
             for layer in hidden_states_batch:
                 hidden_states[layer].extend(hidden_states_batch[layer])
-        return {k: np.array(v) for k, v in hidden_states.items()}
+        return {k: np.array(v) for k, v in hidden_states.items()} # Dict[int, np.ndarray(batch_size, hidden_size)]
     
     def _validate_params(self, n_difference, direction_method):
         # validate params for get_directions

@@ -70,7 +70,8 @@ def honesty_function_dataset(data_path: str, tokenizer: PreTrainedTokenizer, use
         'test': {'data': test_data, 'labels': [[1,0]] * len(test_data)}
     }
 
-def plot_detection_results(input_ids, rep_reader_scores_dict, THRESHOLD, start_answer_token=":"):
+def plot_detection_results(input_ids, rep_reader_scores_dict, THRESHOLD, 
+                           model_type="llama",):
 
     cmap=LinearSegmentedColormap.from_list('rg',["r", (255/255, 255/255, 224/255), "g"], N=256)
     colormap = cmap
@@ -141,13 +142,9 @@ def plot_detection_results(input_ids, rep_reader_scores_dict, THRESHOLD, start_a
         max_line_width = xlim
         started = False
             
-        for word, score in zip(words[5:], rep_scores[5:]):
-
-            if start_answer_token in word:
-                started = True
-                continue
-            if not started:
-                continue
+        start_idx = input_ids[::-1].index(":") if model_type == "llama" else \
+            input_ids[::-1].index(">")
+        for word, score in zip(words[-start_idx:], rep_scores[-start_idx:]):
             
             color = colormap(norm(score))
 
@@ -177,16 +174,16 @@ def plot_detection_results(input_ids, rep_reader_scores_dict, THRESHOLD, start_a
         iter += 1
 
 
-def plot_lat_scans(input_ids, rep_reader_scores_dict, layer_slice):
+def plot_lat_scans(input_ids, rep_reader_scores_dict, layer_slice, model_type="llama"):
     for rep, scores in rep_reader_scores_dict.items():
 
-        start_tok = input_ids.index('▁A')
+        start_tok = input_ids.index('▁A') if model_type == "llama" else input_ids[::-1].index('▁<')
         print(start_tok, np.array(scores).shape)
-        standardized_scores = np.array(scores)[start_tok:start_tok+40,layer_slice]
+        standardized_scores = np.array(scores)[-start_tok:,layer_slice]
         # print(standardized_scores.shape)
 
         bound = np.mean(standardized_scores) + np.std(standardized_scores)
-        bound = 2.3
+        # bound = 2.3
 
         # standardized_scores = np.array(scores)
         
@@ -210,6 +207,6 @@ def plot_lat_scans(input_ids, rep_reader_scores_dict, layer_slice):
         ax.tick_params(axis='x', rotation=0)
 
         ax.set_yticks(np.arange(0, len(standardized_scores[0]), 5)[1:])
-        ax.set_yticklabels(np.arange(20, len(standardized_scores[0])+20, 5)[::-1][1:])#, fontsize=20)
+        ax.set_yticklabels(np.arange(0, len(standardized_scores[0]), 5)[::-1][1:])#, fontsize=20)
         ax.set_title("LAT Neural Activity")#, fontsize=30)
     plt.show()
