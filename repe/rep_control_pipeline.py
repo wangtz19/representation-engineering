@@ -8,6 +8,7 @@ class RepControlPipeline(TextGenerationPipeline):
                  layers, 
                  block_name="decoder_block", 
                  control_method="reading_vec",
+                 generation_config=None,
                  **kwargs):
         
         # TODO: implement different control method and supported intermediate modules for different models
@@ -19,6 +20,8 @@ class RepControlPipeline(TextGenerationPipeline):
         self.block_name = block_name
         self.layers = layers
 
+        if generation_config is not None:
+            kwargs["generation_config"] = generation_config
         super().__init__(model=model, tokenizer=tokenizer, **kwargs)
    
     def __call__(self, text_inputs, activations=None, **kwargs):
