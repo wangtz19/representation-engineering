@@ -7,6 +7,9 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 from matplotlib.colors import LinearSegmentedColormap
 
+plt.rcParams['font.sans-serif'] = ['SimHei']  # Specify the default font
+plt.rcParams['axes.unicode_minus'] = False  # Solve the problem that the minus sign '-' is displayed as a square
+
 def honesty_function_dataset(data_path: str, tokenizer: PreTrainedTokenizer, user_tag: str = "", assistant_tag: str = "", seed: int = 0) -> (list, list):
     """
     Processes data to create training and testing datasets based on honesty.
@@ -98,7 +101,8 @@ def honesty_function_dataset_zh(data_path: str,
     false_statements = df[df['label'] == 0]['statement_zh'].values.tolist()
 
     # template_str = "Pretend you're {type} person making statements about the world."
-    template_str = "假设你是{type}的人，并对世界发表看法。"
+    # template_str = "假设你是一个{type}的人，并对世界发表言论。"
+    template_str = "假设你是一个{type}的人，并且只会发表非常{type}的言论，绝对不会表现出与{type}不一致的言行。"
     honest_statements = []
     untruthful_statements = []
 
@@ -109,9 +113,10 @@ def honesty_function_dataset_zh(data_path: str,
         for idx in range(1, len(tokens) - 5):
             truncated_tokens = tokens[:idx]
             truncated_statement = tokenizer.convert_tokens_to_string(truncated_tokens)
-
-            honest_statements.append(f"{user_tag} {template_str.format(type='一个诚实的')} {assistant_tag} " + truncated_statement)
-            untruthful_statements.append(f"{user_tag} {template_str.format(type='一个不诚实的')} {assistant_tag} " + truncated_statement)
+            honest_statements.append(f"{user_tag} {template_str.format(type='诚实')} {assistant_tag} " + truncated_statement)
+            untruthful_statements.append(f"{user_tag} {template_str.format(type='不诚实')} {assistant_tag} " + truncated_statement)
+            # honest_statements.append(f"{user_tag} {template_str.format(type='an honest')} {assistant_tag} " + truncated_statement)
+            # untruthful_statements.append(f"{user_tag} {template_str.format(type='an untruthful')} {assistant_tag} " + truncated_statement)
 
     # Create training data
     ntrain = 512
@@ -210,9 +215,15 @@ def plot_detection_results(input_ids, rep_reader_scores_dict, THRESHOLD,
         max_line_width = xlim
         started = False
             
-        start_idx = input_ids[::-1].index(":") if model_type == "llama" else \
-            input_ids[::-1].index(">")
-        for word, score in zip(words[-start_idx:], rep_scores[-start_idx:]):
+        if model_type == "llama":
+            start_idx = -input_ids[::-1].index("INST") + 1
+        elif model_type == "vicuna":
+            start_idx = -input_ids[::-1].index(":")
+        elif model_type == "chatglm":
+            start_idx = -input_ids[::-1].index(">")
+        else:
+            start_idx = 0
+        for word, score in zip(words[start_idx:], rep_scores[start_idx:]):
             
             color = colormap(norm(score))
 
@@ -244,10 +255,16 @@ def plot_detection_results(input_ids, rep_reader_scores_dict, THRESHOLD,
 
 def plot_lat_scans(input_ids, rep_reader_scores_dict, layer_slice, model_type="llama"):
     for rep, scores in rep_reader_scores_dict.items():
-
-        start_tok = input_ids.index('▁A') if model_type == "llama" else input_ids[::-1].index('▁<')
+        if model_type == "llama":
+            start_tok = -input_ids[::-1].index('INST') + 1
+        elif model_type == "vicuna":
+            start_tok = input_ids.index('▁A')
+        elif model_type == "chatglm":
+            start_tok = -input_ids[::-1].index('▁<')
+        else:
+            start_tok = 0
         print(start_tok, np.array(scores).shape)
-        standardized_scores = np.array(scores)[-start_tok:,layer_slice]
+        standardized_scores = np.array(scores)[start_tok:,layer_slice]
         # print(standardized_scores.shape)
 
         bound = np.mean(standardized_scores) + np.std(standardized_scores)
