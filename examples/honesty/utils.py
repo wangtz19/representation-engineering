@@ -147,7 +147,7 @@ def honesty_function_dataset_zh(data_path: str,
     }
 
 def plot_detection_results(input_ids, rep_reader_scores_dict, THRESHOLD, 
-                           model_type="llama",):
+                           model_type="llama", save_path=None):
 
     cmap=LinearSegmentedColormap.from_list('rg',["r", (255/255, 255/255, 224/255), "g"], N=256)
     colormap = cmap
@@ -261,9 +261,11 @@ def plot_detection_results(input_ids, rep_reader_scores_dict, THRESHOLD,
             x += word_width + 0.1
         
         iter += 1
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight')
 
 
-def plot_lat_scans(input_ids, rep_reader_scores_dict, layer_slice, model_type="llama"):
+def plot_lat_scans(input_ids, rep_reader_scores_dict, layer_slice, model_type="llama", save_path=None):
     for rep, scores in rep_reader_scores_dict.items():
         if model_type == "llama":
             start_tok = -input_ids[::-1].index('INST') + 1
@@ -308,4 +310,6 @@ def plot_lat_scans(input_ids, rep_reader_scores_dict, layer_slice, model_type="l
         ax.set_yticks(np.arange(0, len(standardized_scores[0]), 5)[1:])
         ax.set_yticklabels(np.arange(0, len(standardized_scores[0]), 5)[::-1][1:])#, fontsize=20)
         ax.set_title("LAT Neural Activity")#, fontsize=30)
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight')
     plt.show()
